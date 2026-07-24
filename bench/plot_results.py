@@ -188,7 +188,7 @@ def plot_diversity(conv):
         ax.plot(grid, y, color=COLORS[mode], label=LABEL[mode], lw=2)
     ax.set_xlabel("generation")
     ax.set_ylabel("population diversity (mean edge distance)")
-    ax.set_title("Diversity over time — why DTAM resists premature convergence")
+    ax.set_title("Population diversity over time (serial / P1 / P2)")
     ax.grid(alpha=0.3)
     ax.legend()
     fig.tight_layout()
@@ -258,7 +258,8 @@ def main():
     for inst in instances(rows):
         plot_speedup(rows, inst)
         plot_quality(rows, inst)
-        plot_ttt(rows, inst)
+        # plot_ttt(rows, inst)  # disabled: target rarely reached at equal-work budget
+        #                         (the quality-vs-time curve conveys this more reliably)
     plot_convergence(conv)
     plot_diversity(conv)
     plot_policy()
