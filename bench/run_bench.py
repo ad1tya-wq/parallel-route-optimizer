@@ -48,6 +48,8 @@ def inst_args(spec: str):
     kind, val = spec.split(":", 1)
     if kind == "uniform":
         return ["--gen", "uniform", "--n", val]
+    if kind == "clustered":
+        return ["--gen", "clustered", "--n", val]
     if kind == "circle":
         return ["--gen", "circle", "--n", val]
     if kind == "file":

@@ -85,6 +85,27 @@ Set thread affinity for stable timings: `OMP_PROC_BIND=close OMP_PLACES=cores`.
 
 ---
 
+## Results (summary)
+
+Full write-up with methodology, figures, and references: **[report/report.md](report/report.md)**.
+Headline findings (development machine: Apple M3, 8 cores; regenerate on your own hardware):
+
+- **Parallel vs serial (the main comparison).** At an equal wall-clock budget the island engines
+  reach much better tours than the serial GA — ≈6.0% vs ≈9.9% gap on uniform-500 with 2-opt, and
+  **60–67% shorter tours** on instances without local search (serial completes far fewer
+  generations). Raw speedup at equal work peaks at **≈2.5× on 8 threads** (efficiency ≈0.90 at 2
+  threads, tailing off as the M3's efficiency-cores engage past 4 threads).
+- **DTAM vs fixed migration.** Across every landscape and local-search setting tested, DTAM and
+  fixed migration land **within ~1% of each other** — neither is consistently better. With strong
+  2-opt local search and the diversity the island structure already provides, the migration
+  *policy* is a second-order factor for Euclidean TSP. We report this as measured rather than
+  claiming an improvement the data does not support; DTAM's practical upside is that it is
+  self-tuning (no migration schedule to hand-pick).
+
+Example optimized route (clustered-300, DTAM):
+
+![Optimized route](results/figures/route_clustered300.svg)
+
 ## Layout
 ```
 src/         C++17 header-only engine + main.cpp (CLI)
