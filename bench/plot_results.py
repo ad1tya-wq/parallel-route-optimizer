@@ -219,6 +219,38 @@ def plot_ttt(rows, inst):
     plt.close(fig)
 
 
+def plot_policy():
+    """Grouped bars: mean best tour length per mode, per landscape, normalised to
+    the serial baseline (serial = 1.0). Shows P1 ~= P2 while parallel < serial."""
+    path = RESULTS / "policy.csv"
+    if not path.exists():
+        return
+    data = defaultdict(lambda: defaultdict(list))  # setting -> mode -> [best_len]
+    with open(path) as f:
+        for r in csv.DictReader(f):
+            key = f"{r['instance']}\n({'2-opt' if int(r['twoopt']) else 'no 2-opt'})"
+            data[key][r["mode"]].append(float(r["best_len"]))
+    settings = list(data.keys())
+    modes = ("serial", "island-fixed", "island-dtam")
+    fig, ax = plt.subplots(figsize=(7.6, 4.6))
+    x = np.arange(len(settings)); w = 0.26
+    for i, mode in enumerate(modes):
+        vals = []
+        for s in settings:
+            serial_mean = np.mean(data[s]["serial"]) if data[s]["serial"] else np.nan
+            vals.append(np.mean(data[s][mode]) / serial_mean if data[s][mode] and serial_mean else np.nan)
+        ax.bar(x + (i - 1) * w, vals, w, color=COLORS[mode], label=LABEL[mode])
+    ax.axhline(1.0, color="k", ls="--", alpha=0.4)
+    ax.set_xticks(x); ax.set_xticklabels(settings, fontsize=9)
+    ax.set_ylabel("mean tour length / serial  (lower = better)")
+    ax.set_title("Effect of parallelism and migration policy across landscapes")
+    ax.legend()
+    ax.grid(alpha=0.3, axis="y")
+    fig.tight_layout()
+    fig.savefig(FIGS / "policy.png", dpi=140)
+    plt.close(fig)
+
+
 def main():
     FIGS.mkdir(parents=True, exist_ok=True)
     rows = load_summary()
@@ -229,6 +261,7 @@ def main():
         plot_ttt(rows, inst)
     plot_convergence(conv)
     plot_diversity(conv)
+    plot_policy()
     print(f"Figures written to {FIGS}")
     for p in sorted(FIGS.glob("*.png")):
         print("  " + p.name)

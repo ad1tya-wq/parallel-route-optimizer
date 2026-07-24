@@ -128,8 +128,32 @@ def main():
                          "--time", args.time_budget, "--threads", T, "--seed", seed,
                          *common, "--log-interval", 5, "--csv-log", log])
 
+    # ---- 3. policy-across-landscapes (why DTAM ~= fixed) --------------------
+    # Same equal-wall-clock comparison of serial / P1 / P2 across different
+    # landscapes and with/without local search, to show the migration policy is
+    # secondary once strong 2-opt and the island structure are present.
+    print("\n=== policy across landscapes (equal wall-clock) ===")
+    policy = RESULTS / "policy.csv"
+    if policy.exists():
+        policy.unlink()
+    settings = [
+        ("uniform:500", False, args.time_budget),    # no local search
+        ("clustered:800", True, args.time_budget + 1.0),
+        ("clustered:600", False, args.time_budget + 1.0),
+    ]
+    base = ["--pop", args.pop, "--epoch-len", args.epoch_len, "--quiet"]
+    for spec, twoopt, tb in settings:
+        ia = inst_args(spec)
+        for seed in seeds:
+            for mode, T in (("serial", 1), ("island-fixed", Tmax), ("island-dtam", Tmax)):
+                extra = ["--twoopt", "--twoopt-rate", args.twoopt_rate] if twoopt else []
+                run(binary, ["--mode", mode, *ia, "--generations", 10_000_000,
+                             "--time", tb, "--threads", T, "--seed", seed,
+                             *base, *extra, "--out", policy])
+
     print(f"\nDone. Summary -> {summary}")
     print(f"Convergence logs -> {RESULTS / 'convergence'}")
+    print(f"Policy comparison -> {policy}")
     print("Next: python bench/plot_results.py")
 
 
