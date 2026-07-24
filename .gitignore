@@ -18,3 +18,5 @@ Thumbs.db
 
 # Large/transient scratch (keep curated results, ignore ad-hoc ones)
 results/scratch/
+results/focus*.csv
+results/*.log

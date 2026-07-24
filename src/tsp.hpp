@@ -138,6 +138,31 @@ inline TSPInstance gen_uniform(int n, uint64_t seed, double side = 1000.0) {
     return inst;
 }
 
+// Clustered points: k tight clusters at random centres. This is a rugged, highly
+// multi-modal landscape (many deep local optima from different cluster orderings) and
+// a realistic routing scenario (regional customer groups). It is where premature
+// convergence bites hardest — i.e. where diversity-preserving migration should help.
+// No closed-form optimum, so callers compare tour lengths relatively (lower = better).
+inline TSPInstance gen_clustered(int n, uint64_t seed, int k = 10, double side = 1000.0) {
+    TSPInstance inst;
+    inst.name = "clustered" + std::to_string(n);
+    inst.n = n; inst.rounded = false;
+    inst.xs.resize(n); inst.ys.resize(n);
+    Rng rng(seed);
+    std::vector<double> cx(k), cy(k);
+    for (int c = 0; c < k; ++c) { cx[c] = rng.uniform01() * side; cy[c] = rng.uniform01() * side; }
+    const double spread = side / 40.0;   // clusters are tight relative to their separation
+    for (int i = 0; i < n; ++i) {
+        int c = rng.uniform_int(0, k - 1);
+        inst.xs[i] = cx[c] + (rng.uniform01() * 2 - 1) * spread;
+        inst.ys[i] = cy[c] + (rng.uniform01() * 2 - 1) * spread;
+    }
+    inst.build_matrix();
+    inst.known_opt = -1.0;   // unknown; compare tour lengths relatively
+    inst.opt_is_exact = false;
+    return inst;
+}
+
 // Points evenly spaced on a circle. The optimal tour is the polygon that visits
 // them in angular order; its length is exactly n * 2R * sin(pi/n). Provably
 // optimal, so this is our exact correctness check.

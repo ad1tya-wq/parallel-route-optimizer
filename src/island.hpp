@@ -190,13 +190,15 @@ inline Result run_islands(const TSPInstance& inst, const EngineParams& P) {
                     }
                 } else { // IslandDTAM
                     if (pub_stag[id]) {                            // migrate only when stagnating
+                        // Pull from the most genetically different island (prefer a healthy one),
+                        // maximising the diversity injected into a converging island.
                         int src = -1; double bestd = -1.0;
                         for (int j = 0; j < T; ++j) {
-                            if (j == id || pub_stag[j]) continue;  // prefer a healthy source
+                            if (j == id || pub_stag[j]) continue;
                             double d = edge_distance(pub_best_tour[id], pub_best_tour[j]);
                             if (d > bestd) { bestd = d; src = j; }
                         }
-                        if (src < 0) {                             // all others stagnant: most-distant overall
+                        if (src < 0) {                             // all peers stagnant: most-distant overall
                             for (int j = 0; j < T; ++j) {
                                 if (j == id) continue;
                                 double d = edge_distance(pub_best_tour[id], pub_best_tour[j]);

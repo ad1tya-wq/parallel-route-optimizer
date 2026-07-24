@@ -92,6 +92,7 @@ int main(int argc, char** argv) {
     try {
         if (!in_file.empty())            inst = load_tsplib(in_file);
         else if (gen_kind == "uniform")  inst = gen_uniform(n, P.seed);
+        else if (gen_kind == "clustered")inst = gen_clustered(n, P.seed);
         else if (gen_kind == "circle")   inst = gen_circle(n);
         else { std::cerr << "specify --in <file> or --gen <uniform|circle> --n <N>\n"; return 2; }
     } catch (const std::exception& e) { std::cerr << "error: " << e.what() << "\n"; return 1; }
