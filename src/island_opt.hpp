@@ -10,7 +10,6 @@
 #include "timer.hpp"
 #include "island.hpp"    // Mode, EngineParams, LogRow, Result, target_length
 #include "diversity.hpp"   // bitset edge-set metric, bitwise-identical to ga.hpp's
-#include "twoopt_fast.hpp" // candidate-list 2-opt with don't-look bits
 
 // -----------------------------------------------------------------------------
 // Optimised island engine (P1/P2), selected with `--engine opt`.

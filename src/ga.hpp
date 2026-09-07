@@ -5,6 +5,11 @@
 #include <numeric>
 #include "tsp.hpp"
 #include "rng.hpp"
+// Included rather than forward-declared: a forward declaration would leave an
+// undefined symbol in any translation unit that enables fast 2-opt but does not
+// include the header (tests/test_equiv.cpp hit exactly that). twoopt_fast.hpp
+// depends only on tsp.hpp, so there is no include cycle.
+#include "twoopt_fast.hpp"
 
 // -----------------------------------------------------------------------------
 // Genetic-algorithm building blocks shared by all three modes (serial, P1, P2).
@@ -23,11 +28,6 @@ struct Individual {
     double len = 0.0;
 };
 using Population = std::vector<Individual>;
-
-// Forward-declared so GAParams can point at a candidate list without ga.hpp
-// having to include twoopt_fast.hpp (which includes tsp.hpp back).
-struct NeighbourLists;
-void two_opt_fast(std::vector<int>&, const TSPInstance&, const NeighbourLists&, int);
 
 struct GAParams {
     int  pop_size      = 240;    // total population (islands split this across threads)

@@ -110,7 +110,17 @@ src/                 C++17 engine (header-only) + CLI
                      thread. Kept byte-for-byte as the audit baseline so the Review-2
                      rewrite can be measured against it rather than replacing it.
   island_opt.hpp     Re-engineered engine (--engine opt): islands decoupled from threads,
-                     cache-line-padded per-island state, no per-generation allocation.
+                     cache-line-padded per-island state, no per-generation allocation,
+                     plus the Review-2 mechanisms (heterogeneous island parameters,
+                     relative stagnation trigger, random immigrants) and the
+                     donor-availability instrumentation.
+  twoopt_fast.hpp    Candidate-list 2-opt with don't-look bits (Bentley 1992). Builds
+                     k-nearest-neighbour lists once per instance, then searches only
+                     those candidates. 7.8-13.2x faster than the naive O(n^2) scan and
+                     produces better tours. Enable with --twoopt-fast.
+  diversity.hpp      Bitset edge-set diversity metric: ~6x faster than ga.hpp's hash-set
+                     version and bitwise-identical to it, so the stagnation trigger sees
+                     exactly the same numbers.
   timer.hpp          omp_get_wtime() wrapper with a std::chrono fallback.
   svg.hpp            Renders the best tour to a standalone SVG.
   main.cpp           CLI, instance construction, engine dispatch, validation gate,
@@ -121,10 +131,17 @@ tests/
                         agree for 200 consecutive generations, individual by individual.
   test_island_equiv.cpp Differential test at engine level: run_islands vs run_islands_opt
                         must agree on best length and migration count at 1, 2 and 4 threads.
+  test_diversity.cpp    Asserts the bitset metric is bitwise == the hash-set reference
+                        across 9 problem sizes and 4 population sizes.
+  test_twoopt_fast.cpp  Validity, monotone improvement, candidate-set optimality, and a
+                        quality/speed sweep over neighbour-list sizes k.
 
 bench/
-  run_study.py       Review-2 harness. Six experiments (E1-E6), repeat/round-robin
+  run_study.py       Review-2 harness. Experiments E1-E7, repeat/round-robin
                      scheduling, thermal-drift canary. See section 6.
+  exp_epoch_quality.py      E8: epoch length vs quality at equal wall-clock.
+  exp_review2_extensions.py E9/E10: candidate-list 2-opt, and the DTAM rescue factorial.
+  plot_review2.py           Figures for E7-E10.
   analyze_study.py   Speedup, efficiency, Karp-Flatt, Amdahl fit, tau analysis,
                      paired Wilcoxon policy tests, figures.
   run_bench.py       Original Review-1 harness, kept so the old protocol can be re-run.
@@ -195,7 +212,11 @@ barriers order publish-before-read and migrate-before-next-epoch. Timing uses `o
 | `--epoch-len E` | generations between synchronisation points |
 | `--migrate-interval` / `--migrants K` | P1 migration schedule and size |
 | `--tau t` | DTAM stagnation threshold |
-| `--twoopt [--twoopt-rate r] [--twoopt-passes p]` | bounded 2-opt local search |
+| `--twoopt [--twoopt-rate r] [--twoopt-passes p]` | bounded 2-opt local search (naive O(n^2)) |
+| `--twoopt-fast [--twoopt-k K]` | candidate-list 2-opt with don't-look bits; 7.8-13.2x faster |
+| `--heterogeneous` | spread mutation rate and tournament size across islands |
+| `--rel-trigger [--rel-drop d] [--rel-window w]` | relative stagnation trigger instead of absolute tau |
+| `--immigrants N` | N random immigrants per island per epoch |
 | `--in file.tsp` / `--gen uniform\|clustered\|circle --n N` | instance |
 | `--validate` | verify the returned tour is a permutation and its length is correct; non-zero exit if not |
 | `--csv-log` / `--out` / `--svg` | convergence log / summary row / tour rendering |
@@ -211,9 +232,11 @@ Three independent checks, all runnable:
 1. **Closed-form optimum.** `--gen circle --n 50` places points on a circle, whose optimal tour is
    the polygon visiting them in angular order, of length exactly `n · 2R · sin(π/n)`. The solver
    reaches it with a 0.00% gap. `build.ps1` runs this as a build gate.
-2. **Published optima.** On TSPLIB instances the solver reaches the published optimum exactly on
-   `berlin52` (7542), `st70` (675), `kroA100` (21282) and `ch150` (6528), and lands within 0.23% on
-   `eil51`. These are externally verifiable numbers, not self-generated references.
+2. **Published optima.** With candidate-list 2-opt enabled, the solver reaches the published
+   optimum **exactly on all seven** TSPLIB instances in `data/` within a 3-second budget:
+   `berlin52` 7542, `eil51` 426, `st70` 675, `kroA100` 21282, `ch150` 6528, `kroA200` 29368,
+   `a280` 2579. These are externally verifiable numbers, not self-generated references. (With the
+   original naive 2-opt, `kroA200` stalled at 29491, `a280` at 2602 and `eil51` at 427.)
 3. **Structural validation.** `--validate` checks that the returned tour is a genuine permutation
    of `0..n-1` and that its reported length matches an independent recomputation. Every run in the
    study is validated; the harness reports the pass count.
@@ -287,6 +310,26 @@ run is the closest estimate of true throughput.
 
 ## 7. What was broken in the code, and what changed
 
+### 7.0 What the engineering actually bought
+
+Measured, not assumed. Three "textbook" optimisations produced nothing:
+
+| Change | Effect | Verdict |
+|---|---|---|
+| Cache-line padding against false sharing | 0.92-0.99x | **No gain** |
+| Removing per-generation heap allocation | included above | **No gain** |
+| Moving the RNG to thread-local storage | 0.92-0.99x | **No gain** |
+| Bitset edge-set diversity metric | ~6x on the metric, 1.11-1.16x end-to-end, bitwise-identical | **Real gain** |
+| Candidate-list 2-opt with don't-look bits | 7.8-13.2x on local search, 2.4-3.9% better tours | **Largest gain** |
+
+The lesson is worth stating plainly: the presumed bottlenecks were not the bottleneck. Their
+theoretical cost is real but negligible against roughly 15,000 operations of useful work per shared
+write. What located the real cost was the epoch-length experiment (E7), which showed that even at
+one thread - where there are no barriers at all - runtime falls 3x as the epoch lengthens, pointing
+at per-epoch serial bookkeeping rather than synchronisation. Sections 7.1-7.3 below describe the
+changes that were made on the false hypothesis, and are kept because the negative result is part of
+the finding.
+
 ### 7.1 False sharing on the per-island state
 
 The frozen engine keeps per-island state in parallel `std::vector`s — `island[]`, `pub_best_len[]`,
@@ -353,11 +396,14 @@ correctly.
 ## 8. Reproducing every number
 
 ```powershell
-.\build.ps1                                   # build + correctness gate
-python bench\run_study.py                     # E1-E6, ~45 min, machine idle
-python bench\analyze_study.py                 # tables + figures
-python report\build_report.py                 # report .docx
-python report\build_deck.py                   # slide deck .pptx
+.\build.ps1                                # build + correctness self-test
+python bench\run_study.py                  # E1-E7,   ~45 min, machine idle
+python bench\exp_epoch_quality.py          # E8,      ~26 min
+python bench\exp_review2_extensions.py     # E9, E10, ~22 min
+python bench\analyze_study.py              # derived tables + figures
+python bench\plot_review2.py               # figures for E7-E10
+python report\build_report.py               # report .docx
+python report\build_deck.py                 # slide deck .pptx
 ```
 
 | Experiment | Question it answers |
@@ -368,6 +414,10 @@ python report\build_deck.py                   # slide deck .pptx
 | **E4** | τ sweep: at what threshold is DTAM actually a *trigger*, and does triggering less help? |
 | **E5** | Equal wall-clock quality across landscapes, with and without local search. |
 | **E6** | TSPLIB instances with published optima — externally verifiable quality. |
+| **E7** | Synchronisation frequency: wall-clock vs epoch length at identical total work. |
+| **E8** | Epoch length vs *quality* at equal wall-clock — the other half of E7, and the reason the default was not changed. |
+| **E9** | Candidate-list 2-opt vs the naive scan, at equal wall-clock. |
+| **E10** | DTAM rescue factorial: heterogeneous islands, relative trigger, random immigrants. |
 
 ---
 
@@ -400,15 +450,32 @@ headline results were measurement artefacts** (sections 6.1 and 6.2), not proper
 algorithm. A quality-only evaluation would never have surfaced either. That is a concrete
 demonstration of why the HPC framing is worth having.
 
-**Claim 3 — a negative result, correctly diagnosed.** Review 1 reported that DTAM and fixed
+**Claim 3 — a cost-versus-quality framing the literature does not contain.** A survey of the
+adaptive-migration literature found no published work that measures the *runtime cost* of an
+adaptive migration decision; that literature compares solution quality at fixed generation counts.
+This project measures both, and the two disagree: DTAM is 8.6% better per generation and 8.4% worse
+per second, because its migration decision costs about 30% throughput. That trade-off is invisible
+to a quality-only evaluation, and it is the most defensible novelty claim here.
+
+**Claim 4 — a negative result, correctly diagnosed.** Review 1 reported that DTAM and fixed
 migration land within ~1% of each other and concluded that migration policy is a second-order
 factor. The conclusion was reported honestly but the diagnosis was wrong. At the τ = 0.15 used
 throughout, DTAM's stagnation condition fires on essentially **every** island-epoch — the
 Review-1 data itself shows 313 migrations out of 320 possible island-epochs, and this machine
 reproduces the same ~98% trigger rate. At that rate DTAM is not a *triggered* policy at all; it is
 fixed migration with a different source. **The Review-1 experiment never tested the mechanism it
-was designed to test.** Experiment E4 sweeps τ and reports the trigger rate explicitly, so the
-policy is evaluated in the regime where it actually behaves like a trigger.
+was designed to test.** Experiment E4 sweeps τ and reports the trigger rate explicitly.
+
+Review 2 goes further and instruments *donor availability*: how often a stagnating island finds a
+genuinely non-stagnating peer to pull from, versus falling through to the "most distant island
+overall" fallback. **Stock DTAM finds a healthy donor on 0.3-0.6% of migrations.** The islands all
+collapse at the same time, so on more than 99% of migrations the distant-source-pull mechanism -
+the actual contribution - is not exercised as designed. Three rescue mechanisms were implemented
+and measured (heterogeneous island parameters, a relative stagnation trigger, random immigrants).
+Heterogeneity is the only one that improves on stock DTAM (-2.8% to -4.9%) and it does not close
+the gap to fixed migration; the relative trigger restores discrimination exactly as intended and
+makes quality 18-20% worse, because it suppresses migration and migration is load-bearing. The
+conclusion is that DTAM's premise - migrate only when stagnating - is wrong for this problem.
 
 ### 9.3 Defending it against the obvious challenges
 
