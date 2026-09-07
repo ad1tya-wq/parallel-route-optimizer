@@ -1,0 +1,5 @@
+landscape,twoopt,serial_len,island-fixed_len,island-dtam_len,parallel_vs_serial_pct
+clustered600,0,27297.2,7100.1,7695.7,-73.99
+clustered600,1,5361.5,5320.9,5331.8,-0.76
+uniform500,0,67353.2,21046.2,21274.7,-68.75
+uniform500,1,17714.9,17280.9,17205.6,-2.45

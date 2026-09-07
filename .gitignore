@@ -1,0 +1,26 @@
+# Build output
+/build/
+*.o
+*.obj
+*.exe
+*.out
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Large/transient scratch (keep curated results, ignore ad-hoc ones)
+results/scratch/
+results/focus*.csv
+results/*.log
+
+# build artefacts
+build/
+results/_tmp_row.csv
