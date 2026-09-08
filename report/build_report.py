@@ -501,6 +501,53 @@ def main():
     # ---------------------------------------------------------------
     r.h1("6. Results and Performance Analysis")
 
+    r.h2("5.5 How noisy was the machine?")
+    r.p(
+        "A fixed canary configuration is timed at the start of every round, so drift over a run is "
+        "quantified rather than assumed away. The figures are not uniformly flattering and are "
+        "reported so the reader can judge the timing results accordingly."
+    )
+    r.table(
+        ["Experiment", "Canary drift", "What it carries"],
+        [
+            ["E1 strong scaling", "+45.1%", "the headline speedup numbers"],
+            ["E2 legacy protocol", "-16.1%", "protocol comparison"],
+            ["E3 2-opt confound", "+33.2%", "correlation only"],
+            ["E4 tau sweep", "+30.9%", "quality, not timing"],
+            ["E5 equal wall-clock", "0.0%", "quality under a fixed budget"],
+            ["E6 TSPLIB", "0.0%", "quality under a fixed budget"],
+            ["E7 epoch length", "+41.0%", "timing"],
+        ],
+        widths=[2.0, 1.2, 2.8],
+        caption="Table: thermal drift measured by the canary configuration, first round to last.",
+    )
+    r.p(
+        "The drift on the timing experiments is substantial. Three properties of the protocol bound "
+        "its effect. Repeats are scheduled round-robin across the whole configuration list rather "
+        "than back to back, so drift is spread across all configurations and acts as noise rather "
+        "than as a systematic bias between the configurations being compared. The estimator is the "
+        "minimum over all seed and repeat samples rather than the mean, because throttling noise is "
+        "one-directional and only ever makes a run slower. The residual spread is measurable: the "
+        "coefficient of variation across repeats has a median of 7.06 per cent in E1 and 1.05 per "
+        "cent in E7."
+    )
+    r.p(
+        "The rule that follows is that a timing difference smaller than roughly 5 per cent on this "
+        "machine should not be treated as meaningful. The 3.93x scaling result and the 7.8 to 13.2x "
+        "local-search result are far outside that band. The 1.11 to 1.16x engine-rewrite result is "
+        "close to it, which is why it was confirmed separately using nine tightly alternated "
+        "repeats rather than relying on the main sweep. The two experiments that carry the "
+        "quality conclusions, E5 and E6, recorded zero drift because they are time-budgeted by "
+        "construction."
+    )
+    r.p(
+        "One metric produced no usable data and is reported as such: the harness records the time "
+        "to reach a 5 per cent gap, but at the equal-work budget the target was reached by none of "
+        "the 39 configurations in E1 and none of the 75 in E2. The quality-versus-wall-clock "
+        "comparison in Section 6.6a conveys the same information reliably."
+    )
+    r.pagebreak()
+
     r.h2("6.1 Correctness")
     r.table(
         ["Instance", "Published optimum", "Result", "Gap"],
@@ -681,6 +728,40 @@ def main():
         "16 gain a further 1% at higher build cost)."
     )
     r.figure("i5_fast_twoopt.png", "Candidate-list 2-opt versus naive 2-opt (E9).")
+
+    # --- 6.6a Equal-wall-clock quality: does the island model actually help? ---
+    r.h2("6.6a Parallel versus serial under an equal wall-clock budget (E5)")
+    r.p(
+        "The comparison a user of the software actually faces is: given N seconds, which engine "
+        "returns the better tour? Median tour length over 12 seeds under an identical 4 s budget."
+    )
+    r.table(
+        ["Landscape", "2-opt", "Serial", "Island-fixed", "Island-DTAM", "Parallel vs serial"],
+        [
+            ["clustered-600", "off", "27297.2", "7100.1", "7695.7", "**-74.0%**"],
+            ["uniform-500", "off", "67353.2", "21046.2", "21274.7", "**-68.8%**"],
+            ["clustered-600", "on", "5361.5", "5320.9", "5331.8", "-0.8%"],
+            ["uniform-500", "on", "17714.9", "17280.9", "17205.6", "-2.5%"],
+        ],
+        widths=[1.5, 0.6, 1.0, 1.1, 1.1, 1.2],
+        caption="Table: equal wall-clock quality, 12 seeds, median tour length.",
+    )
+    r.p(
+        "The parallel advantage depends almost entirely on whether local search is enabled. "
+        "Without 2-opt the island engines find 68 to 74 per cent shorter tours in the same "
+        "wall-clock, because the serial GA completes far fewer generations and has no repair "
+        "mechanism. With 2-opt enabled the advantage collapses to between 0.8 and 2.5 per cent, "
+        "because the local search performs most of the optimisation and keeps even the serial GA "
+        "competitive on a per-generation basis. On the TSPLIB instances of Section 6.1 the three "
+        "engines are indistinguishable, because all of them reach the published optimum."
+    )
+    r.p(
+        "Review 1 quoted the 60 to 67 per cent figure without this qualification. The number is "
+        "reproducible, but quoting it without stating that it holds only with local search "
+        "disabled overstates the benefit of parallelism in the configuration anyone would "
+        "actually run. This is a third instance of the same methodological point: a single "
+        "number reported without its operating conditions is not a result."
+    )
 
     r.h2("6.7 Migration policy")
     r.p(

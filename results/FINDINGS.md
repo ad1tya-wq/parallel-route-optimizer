@@ -164,6 +164,82 @@ further 1% at higher build cost).
 
 ---
 
+## 5A. Equal-wall-clock quality: parallel versus serial (E5)
+
+Median tour length under an identical time budget, 12 seeds. This is the comparison a user of the
+software actually cares about: given N seconds, which engine returns the better tour?
+
+| landscape | 2-opt | serial | island-fixed | island-dtam | parallel vs serial |
+|---|--:|--:|--:|--:|--:|
+| clustered-600 | off | 27297.2 | 7100.1 | 7695.7 | **-74.0%** |
+| uniform-500 | off | 67353.2 | 21046.2 | 21274.7 | **-68.8%** |
+| clustered-600 | on | 5361.5 | 5320.9 | 5331.8 | -0.8% |
+| uniform-500 | on | 17714.9 | 17280.9 | 17205.6 | -2.5% |
+
+**The parallel advantage depends almost entirely on whether local search is enabled.** Without
+2-opt the island engines find 68-74% shorter tours in the same wall-clock, because the serial GA
+completes far fewer generations and has no repair mechanism. With 2-opt the advantage collapses to
+0.8-2.5%, because the local search does most of the optimisation and keeps even the serial GA
+competitive per generation.
+
+Review 1 quoted the 60-67% figure without this qualification. The number is reproducible, but
+quoting it without stating that it only holds with local search disabled overstates the benefit of
+parallelism in the configuration anyone would actually run.
+
+On TSPLIB instances (E6) with local search the engines are indistinguishable, because all three
+reach the published optimum.
+
+---
+
+## 5B. Measurement metadata: how noisy was the machine?
+
+These are the numbers behind the claim that the study is trustworthy, and they are not uniformly
+flattering. Reported so the reader can judge rather than take it on faith.
+
+**Thermal drift.** A fixed canary configuration is timed at the start of every round; the figure
+below is the change in canary wall-clock from the first round to the last.
+
+| experiment | canary drift | what it measures |
+|---|--:|---|
+| E1 strong scaling | **+45.1%** | the headline speedup numbers |
+| E2 legacy protocol | -16.1% | protocol comparison |
+| E3 2-opt confound | +33.2% | correlation only |
+| E4 tau sweep | +30.9% | quality, not timing |
+| E5 equal wall-clock | **0.0%** | quality under a fixed budget |
+| E6 TSPLIB | **0.0%** | quality under a fixed budget |
+| E7 epoch length | +41.0% | timing |
+
+The drift on the timing experiments is large. This is a 15 W laptop part and the drift is real, so
+it must not be waved away. Three things bound its effect on the conclusions:
+
+1. **Repeats are scheduled round-robin** across the whole configuration list rather than
+   back-to-back, so drift is spread across all configurations instead of concentrating in whichever
+   one happened to run during a hot patch. It therefore adds noise rather than a systematic bias
+   between the configurations being compared.
+2. **The estimator is the minimum over all seed x repeat samples**, not the mean. Timing noise from
+   throttling is one-directional: it only ever makes a run slower. The fastest observed run is the
+   least contaminated estimate.
+3. **The residual spread is measurable.** Coefficient of variation across repeats: E1 median 7.06%
+   (max 13.56%), E7 median 1.05% (max 8.02%).
+
+The honest statement is therefore: the machine drifted substantially during the timing experiments,
+the protocol was designed to convert that drift into noise rather than bias, and the residual
+per-configuration spread is single-digit percent. Differences smaller than roughly 5% in a timing
+comparison on this machine should not be treated as meaningful. The scaling result (3.93x) and the
+2-opt result (7.8-13.2x) are both far outside that band; the engine-rewrite result (1.11-1.16x) is
+close to it, which is why it was confirmed separately with 9 tightly alternated repeats.
+
+The two quality experiments that matter most for the conclusions, E5 and E6, recorded **0.0% drift**
+because they are time-budgeted: every run takes the same wall-clock by construction.
+
+**Time-to-target.** The harness records the time to reach a 5% gap. On the equal-work runs the
+target was reached by **0 of 39** configurations in E1 and **0 of 75** in E2, because the equal-work
+budget is too small to get within 5% of the reference. This metric therefore produced no usable
+data and is not reported as a result. The quality-versus-wall-clock comparison in E5 conveys the
+same information reliably.
+
+---
+
 ## 6. The DTAM result — a sharper negative than Review 1's
 
 **Review 1 concluded:** DTAM and fixed migration land within ~1% of each other; neither is

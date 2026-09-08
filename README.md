@@ -125,6 +125,11 @@ this project; nothing here is estimated or rounded differently.
   **f = 0.155** (ceiling 6.47x). Karp-Flatt and a load-balance ceiling are used to separate real
   scaling loss from `schedule(static)` integer-division artefacts (p=6 being slower than p=4 is
   real, not noise, and is explained in `results/FINDINGS.md` section 2).
+- **Parallel versus serial depends on local search.** Under an equal 4 s budget (12 seeds), the
+  island engines find **74.0%** shorter tours on clustered-600 and **68.8%** shorter on uniform-500
+  with 2-opt disabled, but only **0.8-2.5%** shorter with it enabled, because the local search does
+  most of the optimisation. Review 1's "60-67%" figure is reproducible but holds only in the
+  no-local-search configuration.
 - **Correctness:** all seven TSPLIB instances tested (berlin52, eil51, st70, kroA100, ch150,
   kroA200, a280) are solved to their published optimum within a 3 s budget, using candidate-list
   2-opt. Before that optimisation, three of them stalled short.

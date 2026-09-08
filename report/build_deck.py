@@ -489,7 +489,28 @@ def main():
             "estimate for random points - an asymptotic approximation, not an optimum.")
 
     # ---------------- Slide 15: DTAM part 1 - diversity collapse ----------------
-    s = content_slide(prs, 15, "The DTAM result", "Part 1: diversity collapses")
+    # ---------------- Slide 14a: equal wall-clock quality (E5) ----------------
+    s = content_slide(prs, 15, "Results",
+                      "Does the island model actually help? It depends on local search")
+    table(s, M, Inches(2.05), CW - Inches(0.4), [
+        ["Landscape", "2-opt", "Serial", "Island-fixed", "Island-DTAM", "Parallel vs serial"],
+        ["clustered-600", "off", "27297.2", "7100.1", "7695.7", ("-74.0%", GREEN, True)],
+        ["uniform-500", "off", "67353.2", "21046.2", "21274.7", ("-68.8%", GREEN, True)],
+        ["clustered-600", "on", "5361.5", "5320.9", "5331.8", ("-0.8%", RED, True)],
+        ["uniform-500", "on", "17714.9", "17280.9", "17205.6", ("-2.5%", RED, True)],
+    ], size=11.5, row_h=0.38)
+    callout(s, M, Inches(4.35), CW - Inches(0.4), Inches(1.35),
+            "Without local search the island engines find 68-74% shorter tours. With it, 0.8-2.5%.",
+            "2-opt does most of the optimisation and keeps even the serial GA competitive per "
+            "generation. Review 1 quoted the 60-67% figure without stating that it holds only with "
+            "local search disabled. A number reported without its operating conditions is not a "
+            "result: this is the same methodological point as the epoch-length trade-off.")
+    text(s, M, Inches(5.95), CW - Inches(0.4), Inches(0.4),
+         [("Equal 4 s budget, 12 seeds, median tour length. On TSPLIB with local search all three "
+           "engines are indistinguishable, because all of them reach the published optimum.",
+           BODY, 10, HAZE, False)], line_spacing=1.15)
+
+    s = content_slide(prs, 16, "The DTAM result", "Part 1: diversity collapses")
     table(s, M, Inches(1.95), CW, [
         ["generation", "10", "130", "250", "370", "610", "730", "1090", "1450"],
         ["diversity", "0.224", "0.032", "0.039", "0.012", "0.010", "0.006", "0.005", "0.004"],
@@ -508,7 +529,7 @@ def main():
            "the sweep.", BODY, 10, HAZE, False)])
 
     # ---------------- Slide 16: DTAM part 2 - donor availability ----------------
-    s = content_slide(prs, 16, "The DTAM result", "Part 2: donor availability 0.3-0.6%")
+    s = content_slide(prs, 17, "The DTAM result", "Part 2: donor availability 0.3-0.6%")
     callout(s, M, Inches(2.1), CW, Inches(1.7),
             "The key diagnostic of the project.",
             "New instrumentation counts how often DTAM finds a genuinely non-stagnating "
@@ -526,7 +547,7 @@ def main():
     ], size=13, gap=1.0)
 
     # ---------------- Slide 17: DTAM part 3 - rescue factorial ----------------
-    s = content_slide(prs, 17, "The DTAM result", "Part 3: the E10 rescue factorial")
+    s = content_slide(prs, 18, "The DTAM result", "Part 3: the E10 rescue factorial")
     fig_with_caption(s, FIGURES / "i5_dtam_factorial.png", M, Inches(1.95), CW * 0.54)
     bullets(s, M + CW * 0.58, Inches(1.95), CW * 0.42, [
         ("Heterogeneous island parameters help.", "The only mechanism that consistently "
@@ -543,7 +564,7 @@ def main():
             "mechanistically rather than asserted.")
 
     # ---------------- Slide 18: Novelty, honestly stated ----------------
-    s = content_slide(prs, 18, "Novelty", "Novelty, honestly stated")
+    s = content_slide(prs, 19, "Novelty", "Novelty, honestly stated")
     bullets(s, M, Inches(2.05), CW, [
         ("1. A specific policy design.", "The combination of a stagnation trigger with "
          "distant-source pull selection chosen at runtime is self-implemented. "
@@ -565,7 +586,7 @@ def main():
             "No configuration was found in which DTAM meaningfully beats fixed migration.")
 
     # ---------------- Slide 19: Conclusion and future work ----------------
-    s = content_slide(prs, 19, "Conclusion", "Conclusion and future work")
+    s = content_slide(prs, 20, "Conclusion", "Conclusion and future work")
     bullets(s, M, Inches(2.05), CW, [
         ("Conclusion.", "On the stated target hardware, the shared GA core scales to "
          "3.93x at 8 SMT threads once measurement flaws are removed; candidate-list "
